@@ -20,7 +20,10 @@ channel.queue_declare(queue="links_to_scan")
 
 def callback(ch, method, properties, body):
     git_url = body.decode()
+    # Тут мы получаем название репозитория
     git_repo_name = git_url.removesuffix(".git").split("/")[-1]
+
+    # Пытаемся склонить. Обернул в try-catch потому что всякое бывает, может интернет пропадет
     try:
         repo = git.Repo.clone_from(
             git_url, f"/app/worker/repos/{git_repo_name}", branch="main"
@@ -29,6 +32,7 @@ def callback(ch, method, properties, body):
         print("Ошибка при клонировании репозитория")
         return None
 
+    # Не уверен, что так вылавливается ошибка на склоненный репо... Типа даже если ошибка будет, то она все ранво что-то запишет в переменную и уже не ноль
     if repo:
         commands = [
             "bash",
