@@ -21,14 +21,18 @@ channel.queue_declare(queue="links_to_scan")
 def callback(ch, method, properties, body):
     git_url = body.decode()
     git_repo_name = git_url.removesuffix(".git").split("/")[-1]
-    repo = git.Repo.clone_from(
-        git_url, f"/app/worker/repos/{git_repo_name}", branch="main"
-    )
+    try:
+        repo = git.Repo.clone_from(
+            git_url, f"/app/worker/repos/{git_repo_name}", branch="main"
+        )
+    except Exception as e:
+        print("Ошибка при клонировании репозитория")
+        return None
 
     if repo:
         commands = [
             "bash",
-            "-c",  # Use 'bash -c' to execute multiple commands in a single subprocess
+            "-c",
             f"cd /app/worker/repos/{git_repo_name} && semgrep scan >> ../../reports/result_{git_repo_name}.txt",
         ]
         result = subprocess.run(commands)
