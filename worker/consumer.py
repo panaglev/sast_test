@@ -1,6 +1,7 @@
 import os
 import git
 import pika
+import subprocess
 
 credentials = pika.PlainCredentials(
     os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
@@ -25,7 +26,14 @@ def callback(ch, method, properties, body):
     )
 
     if repo:
-        pass
+        commands = [
+            "bash",
+            "-c",  # Use 'bash -c' to execute multiple commands in a single subprocess
+            f"cd /app/worker/repos/{git_repo_name} && semgrep scan >> ../../reports/result_{git_repo_name}.txt",
+        ]
+        result = subprocess.run(commands)
+        if result.returncode != 0:
+            print("Не удалось просканировать проект")
     else:
         return None
 
