@@ -20,6 +20,11 @@ channel.queue_declare(queue="links_to_scan")
 
 def callback(ch, method, properties, body):
     git_url = body.decode()
+
+    # Эте если была передана ссылка на проект, а не ссылка на скачивание.
+    # Понял, что этого не хватает только уже после того как все закончил писать, так что места лучше чем впихнуть сюда - не нашел
+    if git_url[:-3] != ".git":
+        git_url += ".git"
     # Тут мы получаем название репозитория
     git_repo_name = git_url.removesuffix(".git").split("/")[-1]
 
