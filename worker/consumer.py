@@ -19,9 +19,10 @@ channel.queue_declare(queue="links_to_scan")
 
 def callback(ch, method, properties, body):
     git_url = body.decode()
-    # At this point we're sure that git_url contains valid url on git repo
-    # All we need to do is to download project and start scan
-    repo = git.Repo.clone_from(git_url, "/app/worker/repos", branch="main")
+    git_repo_name = git_url.removesuffix(".git").split("/")[-1]
+    repo = git.Repo.clone_from(
+        git_url, f"/app/worker/repos/{git_repo_name}", branch="main"
+    )
 
     if repo:
         pass
