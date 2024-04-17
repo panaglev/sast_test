@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  uwsgi:
+    build:
+      context: ./uwsgi
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    environment:
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - .:/app # hot-reload 
+    depends_on:
+      - rabbitmq
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - .:/app # hot-reload 
+      - ./worker/repos:/app/worker/repos
+      - ./worker/reports:/app/worker/reports
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - rabbit_mqdata:/usr/share/rabbitmq/data
+
+volumes:
+  rabbit_mqdata:

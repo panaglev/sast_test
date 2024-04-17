@@ -1,0 +1,4 @@
+task.txt
+uwsgi/.venv
+uwsgi/db.sqlite3
+worker/.venv
