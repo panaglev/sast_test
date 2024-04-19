@@ -11,6 +11,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY . /app/
 
-# sleep needs to wait for script until rabbitmq loads up
-# может быть исправлено с помощью wait-for-it.sh (который настроен на пинг кролика)
-CMD sleep 5 && python worker/consumer.py
+COPY wait-for-it.sh /usr/local/bin/wait-for-it.sh
+
+RUN chmod +x /usr/local/bin/wait-for-it.sh
+
+CMD ["wait-for-it.sh", "rabbitmq:5672", "--", "python", "worker/consumer.py"]
