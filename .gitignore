@@ -4,5 +4,5 @@ uwsgi/db.sqlite3
 worker/.venv
 worker/repos/*
 worker/reports/*
-uwsgi/app/__pycache__/
-uwsgi/uwsgi/__pycache__/
+uwsgi/app/__pycache__/*
+uwsgi/uwsgi/__pycache__/*
