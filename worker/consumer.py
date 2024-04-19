@@ -1,7 +1,21 @@
 import os
+import re
 import git
 import pika
 import subprocess
+
+
+def get_repo_name_from_url(url: str) -> str:
+    last_slash_index = url.rfind("/")
+    last_suffix_index = url.rfind(".git")
+    if last_suffix_index < 0:
+        last_suffix_index = len(url)
+
+    if last_slash_index < 0 or last_suffix_index <= last_slash_index:
+        raise Exception("Badly formatted url {}".format(url))
+
+    return url[last_slash_index + 1 : last_suffix_index]
+
 
 credentials = pika.PlainCredentials(
     os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
@@ -21,28 +35,21 @@ channel.queue_declare(queue="links_to_scan")
 def callback(ch, method, properties, body):
     git_url = body.decode()
 
-    # Эте если была передана ссылка на проект, а не ссылка на скачивание.
-    # Понял, что этого не хватает только уже после того как все закончил писать, так что места лучше чем впихнуть сюда - не нашел
-    if git_url[:-3] != ".git":
-        git_url += ".git"
     # Тут мы получаем название репозитория
-    git_repo_name = git_url.removesuffix(".git").split("/")[-1]
+    git_repo_name = get_repo_name_from_url(git_url)
 
     # Пытаемся склонить. Обернул в try-catch потому что всякое бывает, может интернет пропадет
     try:
-        repo = git.Repo.clone_from(
-            git_url, f"/app/worker/repos/{git_repo_name}", branch="main"
-        )
+        repo = git.Repo.clone_from(git_url, f"/app/repos/{git_repo_name}")
     except Exception as e:
         print("Ошибка при клонировании репозитория")
         return None
 
-    # Не уверен, что так вылавливается ошибка на склоненный репо... Типа даже если ошибка будет, то она все ранво что-то запишет в переменную и уже не ноль
     if repo:
         commands = [
             "bash",
             "-c",
-            f"cd /app/worker/repos/{git_repo_name} && semgrep scan >> ../../reports/result_{git_repo_name}.txt",
+            f"semgrep scan /app/repos/{git_repo_name} >> /app/reports/result_{git_repo_name}.txt",
         ]
         result = subprocess.run(commands)
         if result.returncode != 0:
