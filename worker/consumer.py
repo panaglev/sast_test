@@ -35,25 +35,24 @@ channel.queue_declare(queue="links_to_scan")
 def callback(ch, method, properties, body):
     git_url = body.decode()
 
-    # Тут мы получаем название репозитория
     git_repo_name = get_repo_name_from_url(git_url)
 
-    # Пытаемся склонить. Обернул в try-catch потому что всякое бывает, может интернет пропадет
     try:
-        repo = git.Repo.clone_from(git_url, f"/app/repos/{git_repo_name}")
+        if not os.path.exists(git_repo_name):
+            repo = git.Repo.clone_from(git_url, f"/app/repos/{git_repo_name}")
     except Exception as e:
         print("Ошибка при клонировании репозитория")
         return None
 
-    if repo:
-        commands = [
-            "bash",
-            "-c",
-            f"semgrep scan /app/repos/{git_repo_name} >> /app/reports/result_{git_repo_name}.txt",
-        ]
-        result = subprocess.run(commands)
-        if result.returncode != 0:
-            print("Не удалось просканировать проект")
+    commands = [
+        "bash",
+        "-c",
+        f"semgrep scan /app/repos/{git_repo_name} >> /app/reports/result_{git_repo_name}.txt",
+    ]
+    result = subprocess.run(commands)
+
+    if result.returncode != 0:
+        print("Не удалось просканировать проект")
     else:
         return None
 
