@@ -13,6 +13,8 @@ services:
       - RABBITMQ_HOST=rabbitmq
     depends_on:
       - rabbitmq
+    volumes:
+      - .:/app # <- Работающий hot-reload
 
   worker:
     build:
