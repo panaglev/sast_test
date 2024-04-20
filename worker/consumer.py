@@ -36,18 +36,18 @@ def callback(ch, method, properties, body):
     git_url = body.decode()
 
     git_repo_name = get_repo_name_from_url(git_url)
+    repo_path = os.path.join("/app/repos/", git_repo_name)
 
     try:
-        if not os.path.exists(git_repo_name):
-            repo = git.Repo.clone_from(git_url, f"/app/repos/{git_repo_name}")
+        if os.path.exists(repo_path) == False:
+            _ = git.Repo.clone_from(git_url, repo_path)
     except Exception as e:
-        print("Ошибка при клонировании репозитория")
         return None
 
     commands = [
         "bash",
         "-c",
-        f"semgrep scan /app/repos/{git_repo_name} >> /app/reports/result_{git_repo_name}.txt",
+        f"echo ====NEW_SCAN==== >> /app/reports/{git_repo_name}.txt && semgrep scan /app/repos/{git_repo_name} >> /app/reports/{git_repo_name}.txt",
     ]
     result = subprocess.run(commands)
 
