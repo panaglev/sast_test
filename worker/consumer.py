@@ -22,27 +22,39 @@ def get_repo_name_from_url(url: str) -> str:
 
 
 def extract_project_vulns(project_name):
-    """
-    В текущей версии приложения этот парсер работает плохо.
-    Будет переписан.
-    """
     findings = list()
+    tmp = dict()
+    prev_change = ""
 
     with open(f"/app/reports/{project_name}.txt", "r") as f:
         text = f.read()
-        text = text.split("====NEW_SCAN====")
+        text = text.strip().split("\n")
 
-        for scan in text:
-            if scan != "":
-                tmp_array = dict()
+        for line in text:
+            line = line.strip()
 
-                scan = scan.split("\n")[7:]
+            if line.startswith("/app/repos"):
+                if prev_change == "line_in_code":
+                    findings.append(dict(tmp))
 
-                tmp_array["path"] = scan[0]
-                tmp_array["vuln_name"] = scan[1]
-                tmp_array["line_in_code"] = scan[-3]
+                tmp = {"path": line, "vuln_name": "", "line_in_code": ""}
+                prev_change = "path"
 
-                findings.append(tmp_array)
+            elif line.startswith("❯❯❱") or line.startswith("❯❱"):
+                if prev_change == "line_in_code":
+                    findings.append(dict(tmp))
+
+                tmp["vuln_name"] = line
+                prev_change = "vuln_name"
+
+            elif line != "" and line[0].isdigit():
+                if prev_change == "line_in_code":
+                    tmp["line_in_code"] += line
+                    prev_change = "line_in_code"
+                elif prev_change == "vuln_name":
+                    tmp["line_in_code"] = line
+                    prev_change = "line_in_code"
+
             else:
                 continue
 

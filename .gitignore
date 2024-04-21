@@ -6,3 +6,4 @@ worker/repos/*
 worker/reports/*
 uwsgi/app/__pycache__/*
 uwsgi/uwsgi/__pycache__/*
+.vscode/
