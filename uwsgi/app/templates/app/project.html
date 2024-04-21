@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Pass repo name here</title>
+</head>
+
+<body>
+    {% for item in data %}
+    <li>{{ item.path }}</li>
+    <li>{{ item.vuln_name }}</li>
+    <li>{{ item.line_in_code }}</li>
+    {% endfor %}
+</body>
+
+</html>

@@ -1,8 +1,12 @@
 import os
-import re
 import git
 import pika
+import json
 import subprocess
+
+FINDINGS = "findings"
+PROJECTS_TO_PARSE = "projects_to_parse"
+LINKS_TO_SCAN = "links_to_scan"
 
 
 def get_repo_name_from_url(url: str) -> str:
@@ -17,29 +21,40 @@ def get_repo_name_from_url(url: str) -> str:
     return url[last_slash_index + 1 : last_suffix_index]
 
 
-credentials = pika.PlainCredentials(
-    os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
-)
-connection = pika.BlockingConnection(
-    pika.ConnectionParameters(
-        host=os.getenv("RABBITMQ_HOST"),
-        port=os.getenv("RABBITMQ_PORT"),
-        credentials=credentials,
-    )
-)
-channel = connection.channel()
+def extract_project_vulns(project_name):
+    """
+    В текущей версии приложения этот парсер работает плохо.
+    Будет переписан.
+    """
+    findings = list()
 
-channel.queue_declare(queue="links_to_scan")
+    with open(f"/app/reports/{project_name}.txt", "r") as f:
+        text = f.read()
+        text = text.split("====NEW_SCAN====")
+
+        for scan in text:
+            if scan != "":
+                tmp_array = dict()
+
+                scan = scan.split("\n")[7:]
+
+                tmp_array["path"] = scan[0]
+                tmp_array["vuln_name"] = scan[1]
+                tmp_array["line_in_code"] = scan[-3]
+
+                findings.append(tmp_array)
+            else:
+                continue
+
+    return findings
 
 
-def callback(ch, method, properties, body):
-    git_url = body.decode()
-
+def send_repo_to_scan(git_url: str):
     git_repo_name = get_repo_name_from_url(git_url)
     repo_path = os.path.join("/app/repos/", git_repo_name)
 
     try:
-        if os.path.exists(repo_path) == False:
+        if not os.path.exists(repo_path):
             _ = git.Repo.clone_from(git_url, repo_path)
     except Exception as e:
         return None
@@ -57,9 +72,67 @@ def callback(ch, method, properties, body):
         return None
 
 
-channel.basic_consume(
-    queue="links_to_scan", on_message_callback=callback, auto_ack=True
-)
+def send_to_queue(data: str, queue_name: str):
+    try:
+        credentials = pika.PlainCredentials(
+            os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
+        )
 
-print("Waiting for messages. To exit, press CTRL+C")
-channel.start_consuming()
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=os.getenv("RABBITMQ_HOST"),
+                port=os.getenv("RABBITMQ_PORT"),
+                credentials=credentials,
+            )
+        )
+        channel = connection.channel()
+
+        channel.queue_declare(queue=queue_name)
+
+        channel.basic_publish(exchange="", routing_key=queue_name, body=data)
+    except Exception as e:
+        return None
+    finally:
+        connection.close()
+
+
+def main():
+    credentials = pika.PlainCredentials(
+        os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
+    )
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            host=os.getenv("RABBITMQ_HOST"),
+            port=os.getenv("RABBITMQ_PORT"),
+            credentials=credentials,
+        )
+    )
+    channel = connection.channel()
+
+    def start_scan_handle(ch, method, properties, body):
+        git_url = body.decode()
+        send_repo_to_scan(git_url)
+
+    channel.queue_declare(queue=LINKS_TO_SCAN)
+    channel.basic_consume(
+        queue=LINKS_TO_SCAN, on_message_callback=start_scan_handle, auto_ack=True
+    )
+
+    def return_project_info_handle(ch, method, properties, body):
+        project_name = body.decode()
+        result = extract_project_vulns(project_name)
+        send_to_queue(json.dumps(result), FINDINGS)
+
+    channel.queue_declare(queue=PROJECTS_TO_PARSE)
+    channel.basic_consume(
+        queue=PROJECTS_TO_PARSE,
+        on_message_callback=return_project_info_handle,
+        auto_ack=True,
+    )
+
+    print("Waiting for messages. To exit, press CTRL+C")
+    channel.start_consuming()
+
+
+if __name__ == "__main__":
+    main()

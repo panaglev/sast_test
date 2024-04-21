@@ -22,4 +22,5 @@ from . import views
 urlpatterns = [
     path("", views.index),  # Display main page with text box and button
     path("check/repo/", views.check_repo),  # Handles checking repo
+    path("<str:project_name>/", views.render_exact_project),
 ]

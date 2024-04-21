@@ -1,17 +1,15 @@
 import os
 import pika
+import json
 import requests
 
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 
 
-# Решил вынести отправку в очередь в другую функцию
-# т.к. это только в этом приложении один обработчик
-# на практике может встретиться в разы больше - следовательно
-# лучше подумать о переиспользовании кода
-def send_to_scan(git_url: str):
+def send_to_queue(data: str, queue_name: str):
     try:
         credentials = pika.PlainCredentials(
             os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
@@ -26,13 +24,56 @@ def send_to_scan(git_url: str):
         )
         channel = connection.channel()
 
-        channel.queue_declare(queue="links_to_scan")
+        channel.queue_declare(queue=queue_name)
 
-        channel.basic_publish(exchange="", routing_key="links_to_scan", body=git_url)
+        channel.basic_publish(exchange="", routing_key=queue_name, body=data)
     except Exception as e:
-        return JsonResponse({"error": "Try later"})
+        return None
     finally:
         connection.close()
+
+
+def get_data_from_queue():
+    credentials = pika.PlainCredentials(
+        os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASS")
+    )
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            host=os.getenv("RABBITMQ_HOST"),
+            port=os.getenv("RABBITMQ_PORT"),
+            credentials=credentials,
+        )
+    )
+    channel = connection.channel()
+
+    channel.queue_declare(queue=settings.FINDINGS)
+
+    findings = []
+
+    def recieve_project_info_handle(ch, method, properties, body):
+        data = body.decode()
+        findings.append(data)
+        channel.stop_consuming()
+
+    channel.basic_consume(
+        queue=settings.FINDINGS,
+        on_message_callback=recieve_project_info_handle,
+        auto_ack=True,
+    )
+
+    print("Waiting for messages. To exit, press CTRL+C")
+    channel.start_consuming()
+
+    return findings
+
+
+def render_exact_project(request, project_name):
+    send_to_queue(project_name, settings.PROJECTS_TO_PARSE)
+    recieved_data = get_data_from_queue()
+    json_recieved_data = recieved_data[0]
+    parsed_data = json.loads(json_recieved_data)
+
+    return render(request, "app/project.html", context={"data": parsed_data})
 
 
 @csrf_exempt
@@ -48,11 +89,12 @@ def check_repo(request):
             git_url.removeprefix("http://").removeprefix("https://").split(".")[0]
             in ("github", "gitlab")
         ):
-            send_to_scan(git_url)
+            # if send_to_queue(git_url, "links_to_scan") is None:
+            send_to_queue(git_url, settings.LINKS_TO_SCAN)
         else:
             return JsonResponse({"error": "Failed to send to scan"})
 
-        return HttpResponse("Waiting to start the SAST")
+        return HttpResponse("Info could be found on project page")
     else:
         return JsonResponse({"error": "Method is not allowed"})
 

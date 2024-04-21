@@ -129,3 +129,7 @@ STATIC_URL = "/static/"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+FINDINGS = "findings"
+PROJECTS_TO_PARSE = "projects_to_parse"
+LINKS_TO_SCAN = "links_to_scan"
