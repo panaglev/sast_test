@@ -73,7 +73,11 @@ def render_exact_project(request, project_name):
     json_recieved_data = recieved_data[0]
     parsed_data = json.loads(json_recieved_data)
 
-    return render(request, "app/project.html", context={"data": parsed_data})
+    title = project_name
+
+    body = {"data": parsed_data, "title": title}
+
+    return render(request, "app/project.html", context=body)
 
 
 @csrf_exempt
@@ -94,7 +98,9 @@ def check_repo(request):
         else:
             return JsonResponse({"error": "Failed to send to scan"})
 
-        return HttpResponse("Info could be found on project page")
+        return HttpResponse(
+            "Info could be found on project page: http://127.0.0.1:8000/*project_name*"
+        )
     else:
         return JsonResponse({"error": "Method is not allowed"})
 

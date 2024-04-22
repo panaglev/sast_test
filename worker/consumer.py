@@ -40,15 +40,23 @@ def extract_project_vulns(project_name):
                 tmp = {"path": line, "vuln_name": "", "line_in_code": ""}
                 prev_change = "path"
 
-            elif line.startswith("❯❯❱") or line.startswith("❯❱"):
+            elif line.startswith("❯❯❱"):
                 if prev_change == "line_in_code":
                     findings.append(dict(tmp))
 
-                tmp["vuln_name"] = line
+                tmp["vuln_name"] = line[3:]
                 prev_change = "vuln_name"
 
-            elif line != "" and line[0].isdigit():
+            elif line.startswith("❯❱"):
                 if prev_change == "line_in_code":
+                    findings.append(dict(tmp))
+
+                tmp["vuln_name"] = line[2:]
+                prev_change = "vuln_name"
+
+            elif line != "" and (line[0].isdigit() or prev_change == "line_in_code"):
+                if prev_change == "line_in_code":
+                    tmp["line_in_code"] += "\n"
                     tmp["line_in_code"] += line
                     prev_change = "line_in_code"
                 elif prev_change == "vuln_name":
@@ -74,7 +82,7 @@ def send_repo_to_scan(git_url: str):
     commands = [
         "bash",
         "-c",
-        f"echo ====NEW_SCAN==== >> /app/reports/{git_repo_name}.txt && semgrep scan /app/repos/{git_repo_name} >> /app/reports/{git_repo_name}.txt",
+        f"semgrep scan /app/repos/{git_repo_name} >> /app/reports/{git_repo_name}.txt",
     ]
     result = subprocess.run(commands)
 
