@@ -66,6 +66,9 @@ def extract_project_vulns(project_name):
             else:
                 continue
 
+    if bool(tmp):  # <- добавить последний элемент сканирования
+        findings.append(dict(tmp))
+
     return findings
 
 

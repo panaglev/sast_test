@@ -75,9 +75,11 @@ def render_exact_project(request, project_name):
 
     title = project_name
 
-    body = {"data": parsed_data, "title": title}
-
-    return render(request, "app/project.html", context=body)
+    if parsed_data != []:
+        body = {"data": parsed_data, "title": title}
+        return render(request, "app/project.html", context=body)
+    else:
+        return render(request, "app/project.html", context={"info": "no vulns found"})
 
 
 @csrf_exempt

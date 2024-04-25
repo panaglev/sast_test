@@ -7,12 +7,16 @@
 </head>
 
 <body>
+    {% if info %}
+    <h1>No vulns fonud in this project</h1>
+    {% else %}
     {% for item in data %}
     <li><b>{{ item.path }}</b></li>
     <li>{{ item.vuln_name }}</li>
     <li>{{ item.line_in_code }}</li>
     <h1></h1>
     {% endfor %}
+    {% endif %}
 </body>
 
 </html>
